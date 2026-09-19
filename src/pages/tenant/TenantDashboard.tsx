@@ -38,12 +38,24 @@ export default function TenantDashboard() {
     try {
       await api.post(`/whatsapp/${tenantId}/connect`);
       fetchStatus();
+      // Empezar a hacer polling más rápido mientras esperamos el QR
+      const fastInterval = setInterval(() => {
+        fetchStatus();
+      }, 2000);
+      
+      // Limpiar el interval rápido después de 20 segundos
+      setTimeout(() => clearInterval(fastInterval), 20000);
     } catch (error) {
       console.error('Error connecting', error);
-    } finally {
       setConnecting(false);
     }
   };
+
+  useEffect(() => {
+    if (status?.status === 'QR_READY' || status?.status === 'CONNECTED') {
+      setConnecting(false);
+    }
+  }, [status?.status]);
 
   const disconnectWhatsapp = async () => {
     try {
@@ -76,13 +88,13 @@ export default function TenantDashboard() {
           Conexión de WhatsApp
         </h2>
 
-        {loading ? (
+        {loading && !status ? (
           <p className="text-slate-400">Comprobando estado...</p>
         ) : (
           <div className="flex flex-col items-center justify-center py-6">
             {status?.status === 'CONNECTED' ? (
               <div className="flex flex-col items-center text-emerald-400 space-y-6">
-                <CheckCircle2 size={64} />
+                <CheckCircle2 size={64} className="animate-pulse" />
                 <h3 className="text-xl font-bold text-white">Dispositivo Conectado</h3>
                 <p className="text-slate-400">Tu bot está en línea y procesando mensajes para {tenantId}.</p>
                 
@@ -94,29 +106,40 @@ export default function TenantDashboard() {
                 </button>
               </div>
             ) : status?.status === 'QR_READY' && status.qr ? (
-              <div className="flex flex-col items-center space-y-6">
-                <div className="bg-white p-4 rounded-xl">
-                  <img src={status.qr} alt="WhatsApp QR Code" className="w-64 h-64" />
+              <div className="flex flex-col items-center space-y-6 animate-in fade-in zoom-in duration-500">
+                <div className="bg-white p-4 rounded-xl shadow-[0_0_30px_rgba(52,211,153,0.3)] border-4 border-emerald-400/20 relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-400/20 to-transparent -translate-y-full group-hover:animate-[scan_2s_ease-in-out_infinite]" />
+                  <img src={status.qr} alt="WhatsApp QR Code" className="w-64 h-64 relative z-10" />
                 </div>
                 <h3 className="text-lg font-bold text-white">Escanea el Código QR</h3>
                 <p className="text-slate-400 max-w-sm">
                   Abre WhatsApp en tu teléfono, ve a "Dispositivos vinculados" y escanea este código.
                 </p>
               </div>
+            ) : connecting ? (
+              <div className="flex flex-col items-center space-y-6 animate-in fade-in duration-300">
+                <div className="w-64 h-64 bg-slate-700/50 rounded-xl border-2 border-dashed border-emerald-500/50 flex flex-col items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/10 to-transparent animate-pulse" />
+                  <RefreshCw size={48} className="text-emerald-400 animate-spin mb-4" />
+                  <p className="text-emerald-400 font-medium">Generando credenciales...</p>
+                </div>
+                <h3 className="text-lg font-bold text-white">Conectando con WhatsApp</h3>
+                <p className="text-slate-400 max-w-sm">
+                  Por favor espera un momento mientras inicializamos el motor de encriptación.
+                </p>
+              </div>
             ) : (
               <div className="flex flex-col items-center space-y-6">
                 <div className="text-slate-500">
-                  <AlertCircle size={64} className="mx-auto mb-4" />
+                  <AlertCircle size={64} className="mx-auto mb-4 opacity-50" />
                   <h3 className="text-lg font-bold text-white">Desconectado</h3>
                   <p className="text-slate-400 mt-2">El motor no está corriendo para este Tenant.</p>
                 </div>
                 <button
                   onClick={connectWhatsapp}
-                  disabled={connecting}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-lg font-bold flex items-center gap-3 transition-colors disabled:opacity-50"
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-lg font-bold flex items-center gap-3 transition-all hover:scale-105 active:scale-95 shadow-lg hover:shadow-emerald-500/25"
                 >
-                  {connecting ? <RefreshCw className="animate-spin" /> : <QrCode />}
-                  {connecting ? 'Inicializando...' : 'Generar Código QR'}
+                  <QrCode /> Generar Código QR
                 </button>
               </div>
             )}

@@ -17,7 +17,7 @@ export default function TenantLayout() {
       {/* Sidebar */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col">
         <div className="p-4 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-emerald-400 truncate">Tenant: {tenantId}</h2>
+          <h2 className="text-lg font-bold text-emerald-400 truncate">{tenantId}</h2>
         </div>
         <nav className="flex-1 p-4 space-y-2">
           <Link to={`/tenant/${tenantId}/dashboard`} className="flex items-center gap-3 px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
@@ -34,7 +34,7 @@ export default function TenantLayout() {
           </Link>
         </nav>
         <div className="p-4 border-t border-slate-800">
-          <button 
+          <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-all"
           >

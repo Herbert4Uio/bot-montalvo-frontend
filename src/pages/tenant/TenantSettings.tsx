@@ -39,14 +39,14 @@ export default function TenantSettings() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto w-full">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full">
       <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-xl overflow-hidden">
-        <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex items-center gap-3">
-          <Settings className="text-emerald-400" />
-          <h2 className="text-xl font-bold text-white">Configuración de Inteligencia Artificial</h2>
+        <div className="p-4 sm:p-6 border-b border-slate-700 bg-slate-800/50 flex items-center gap-3">
+          <Settings className="text-emerald-400 shrink-0" />
+          <h2 className="text-lg sm:text-xl font-bold text-white">Configuración de Inteligencia Artificial</h2>
         </div>
         
-        <form onSubmit={saveSettings} className="p-6 space-y-6">
+        <form onSubmit={saveSettings} className="p-4 sm:p-6 space-y-6">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               System Prompt (Comportamiento del Bot)
@@ -62,16 +62,16 @@ export default function TenantSettings() {
             />
           </div>
 
-          <div className="flex justify-end items-center gap-4">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3">
             {saved && (
-              <span className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
+              <span className="flex items-center justify-center gap-2 text-emerald-400 text-sm font-medium">
                 <CheckCircle2 size={16} /> Guardado exitosamente
               </span>
             )}
             <button
               type="submit"
               disabled={saving}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
+              className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 w-full sm:w-auto"
             >
               <Save size={18} /> {saving ? 'Guardando...' : 'Guardar Cambios'}
             </button>

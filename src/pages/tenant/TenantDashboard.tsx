@@ -81,8 +81,8 @@ export default function TenantDashboard() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto w-full space-y-6">
-      <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-xl p-8 text-center space-y-6">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full space-y-6">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-xl p-4 sm:p-8 text-center space-y-6">
         <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-3">
           <QrCode className="text-emerald-400" size={32} />
           Conexión de WhatsApp
@@ -109,7 +109,7 @@ export default function TenantDashboard() {
               <div className="flex flex-col items-center space-y-6 animate-in fade-in zoom-in duration-500">
                 <div className="bg-white p-4 rounded-xl shadow-[0_0_30px_rgba(52,211,153,0.3)] border-4 border-emerald-400/20 relative overflow-hidden group">
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-400/20 to-transparent -translate-y-full group-hover:animate-[scan_2s_ease-in-out_infinite]" />
-                  <img src={status.qr} alt="WhatsApp QR Code" className="w-64 h-64 relative z-10" />
+                  <img src={status.qr} alt="WhatsApp QR Code" className="w-56 h-56 sm:w-64 sm:h-64 relative z-10" />
                 </div>
                 <h3 className="text-lg font-bold text-white">Escanea el Código QR</h3>
                 <p className="text-slate-400 max-w-sm">
@@ -118,7 +118,7 @@ export default function TenantDashboard() {
               </div>
             ) : connecting ? (
               <div className="flex flex-col items-center space-y-6 animate-in fade-in duration-300">
-                <div className="w-64 h-64 bg-slate-700/50 rounded-xl border-2 border-dashed border-emerald-500/50 flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="w-56 h-56 sm:w-64 sm:h-64 bg-slate-700/50 rounded-xl border-2 border-dashed border-emerald-500/50 flex flex-col items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/10 to-transparent animate-pulse" />
                   <RefreshCw size={48} className="text-emerald-400 animate-spin mb-4" />
                   <p className="text-emerald-400 font-medium">Generando credenciales...</p>
@@ -137,7 +137,7 @@ export default function TenantDashboard() {
                 </div>
                 <button
                   onClick={connectWhatsapp}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-lg font-bold flex items-center gap-3 transition-all hover:scale-105 active:scale-95 shadow-lg hover:shadow-emerald-500/25"
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 sm:px-8 py-3 rounded-lg font-bold flex items-center gap-3 transition-all hover:scale-105 active:scale-95 shadow-lg hover:shadow-emerald-500/25"
                 >
                   <QrCode /> Generar Código QR
                 </button>
@@ -147,7 +147,7 @@ export default function TenantDashboard() {
         )}
       </div>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-xl p-6 flex items-center justify-between">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-xl p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <Trash2 className="text-red-400" size={20} /> Memoria de la IA
@@ -157,7 +157,7 @@ export default function TenantDashboard() {
         <button
           onClick={clearMemory}
           disabled={clearing}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
+          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 w-full sm:w-auto"
         >
           {clearing ? <RefreshCw className="animate-spin" size={18} /> : <Trash2 size={18} />}
           Limpiar Historial

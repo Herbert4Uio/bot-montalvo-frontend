@@ -55,7 +55,7 @@ export default function SuperadminDashboard() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
+      <div className="bg-slate-800 p-4 sm:p-6 rounded-xl border border-slate-700 shadow-xl">
         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
           <Building className="text-emerald-400" /> Nuevo Tenant
         </h2>
@@ -95,7 +95,7 @@ export default function SuperadminDashboard() {
           </div>
           <button
             type="submit"
-            className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 md:h-[42px]"
+            className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 w-full md:w-auto md:h-[42px]"
             disabled={!newTenantName || !adminEmail || !adminPassword}
           >
             <Plus size={20} /> Crear
@@ -104,7 +104,7 @@ export default function SuperadminDashboard() {
       </div>
 
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
-        <div className="p-6 border-b border-slate-700">
+        <div className="p-4 sm:p-6 border-b border-slate-700">
           <h2 className="text-xl font-bold text-white">Tenants Registrados</h2>
         </div>
         {loading ? (
@@ -115,14 +115,14 @@ export default function SuperadminDashboard() {
               <li className="p-8 text-center text-slate-400">No hay tenants creados.</li>
             ) : (
               tenants.map(tenant => (
-                <li key={tenant.id} className="p-6 flex items-center justify-between hover:bg-slate-750 transition-colors">
-                  <div>
-                    <h3 className="text-lg font-bold text-white">{tenant.name}</h3>
-                    <p className="text-sm text-slate-400 font-mono mt-1">ID: {tenant.id}</p>
+                <li key={tenant.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-700/50 transition-colors">
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold text-white truncate">{tenant.name}</h3>
+                    <p className="text-sm text-slate-400 font-mono mt-1 truncate">ID: {tenant.id}</p>
                   </div>
                   <button
                     onClick={() => navigate(`/tenant/${tenant.id}/dashboard`)}
-                    className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors"
+                    className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors w-full sm:w-auto"
                   >
                     Entrar <ArrowRight size={16} />
                   </button>

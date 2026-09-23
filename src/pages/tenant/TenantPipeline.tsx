@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { User, GripVertical, Plus, X, DollarSign } from 'lucide-react';
+import { User, GripVertical, MoreHorizontal, Plus, X, DollarSign } from 'lucide-react';
 import clsx from 'clsx';
 
 interface Customer {
@@ -49,7 +49,16 @@ function PipelineColumn({ id, title, customers, children }: { id: string, title:
 }
 
 // Card Component
-function SortableCustomerCard({ customer }: { customer: Customer }) {
+interface SortableCustomerCardProps {
+  customer: Customer;
+  isCoarse: boolean;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+  onMoveStage: (customer: Customer, stage: string) => void;
+}
+
+function SortableCustomerCard({ customer, isCoarse, menuOpen, onToggleMenu, onCloseMenu, onMoveStage }: SortableCustomerCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: customer.id,
     data: {
@@ -72,15 +81,65 @@ function SortableCustomerCard({ customer }: { customer: Customer }) {
         isDragging ? "border-emerald-500 shadow-xl opacity-50 z-50" : "border-slate-700 hover:border-slate-600 shadow-sm"
       )}
     >
-      <div className="flex justify-between items-start cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
-        <div>
+      {menuOpen && (
+        <button
+          type="button"
+          onClick={onCloseMenu}
+          className="fixed inset-0 z-20 cursor-default"
+          aria-label="Cerrar menú"
+          tabIndex={-1}
+        />
+      )}
+      <div className={clsx(
+        "flex justify-between items-start gap-2",
+        !isCoarse && "cursor-grab active:cursor-grabbing"
+      )} {...(isCoarse ? {} : { ...attributes, ...listeners })}>
+        <div className="min-w-0">
           <p className="text-sm font-bold text-white mb-1 line-clamp-1">{customer.dealTitle}</p>
           <div className="flex items-center gap-1 text-xs text-slate-400 font-medium">
-            <User size={12} className="text-emerald-500" />
-            <span className="truncate max-w-[150px]">{customer.profileName || customer.phoneNumberReal || customer.phone}</span>
+            <User size={12} className="text-emerald-500 shrink-0" />
+            <span className="truncate">{customer.profileName || customer.phoneNumberReal || customer.phone}</span>
           </div>
         </div>
-        <GripVertical size={16} className="text-slate-600 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0" />
+        {isCoarse ? (
+          <div className="relative z-30 shrink-0">
+            <button
+              type="button"
+              onClick={onToggleMenu}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              aria-label="Mover deal de etapa"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-30 overflow-hidden text-left">
+                <div className="px-3 py-2 text-[10px] uppercase font-bold tracking-wider text-slate-500 border-b border-slate-800">
+                  Mover a etapa
+                </div>
+                <div className="py-1">
+                  {STAGES.map(stage => (
+                    <button
+                      key={stage}
+                      type="button"
+                      onClick={() => onMoveStage(customer, stage)}
+                      className={clsx(
+                        "w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center justify-between gap-2",
+                        customer.pipelineStage === stage
+                          ? "text-emerald-400 bg-emerald-500/10"
+                          : "text-slate-300 hover:text-white hover:bg-slate-800"
+                      )}
+                    >
+                      <span className="truncate">{stage}</span>
+                      {customer.pipelineStage === stage && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <GripVertical size={16} className="text-slate-600 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+        )}
       </div>
       
       {(customer.dealValue || customer.notes) && (
@@ -106,6 +165,7 @@ export default function TenantPipeline() {
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [activeCustomer, setActiveCustomer] = useState<Customer | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -216,6 +276,24 @@ export default function TenantPipeline() {
     }
   };
 
+  const handleMoveStage = async (customer: Customer, stage: string) => {
+    setMenuOpenId(null);
+    const previous = customer.pipelineStage;
+    if (previous === stage) return;
+
+    // Actualización optimista
+    setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, pipelineStage: stage } : c));
+
+    try {
+      await api.patch(`/crm/contacts/${tenantId}/${customer.id}`, {
+        pipelineStage: stage
+      });
+    } catch (error) {
+      console.error('Error moving stage', error);
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, pipelineStage: previous } : c));
+    }
+  };
+
   const handleCreateDeal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomerId || !dealTitle) return;
@@ -247,7 +325,11 @@ export default function TenantPipeline() {
       <div className="p-4 sm:p-6 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">Pipeline de Ventas</h1>
-          <p className="text-slate-400 text-sm mt-1">Arrastra los deals entre las columnas para avanzar en el embudo.</p>
+          <p className="text-slate-400 text-sm mt-1">
+            {isCoarse
+              ? 'Toca el menú (⋮) de un deal para moverlo entre las etapas del embudo.'
+              : 'Arrastra los deals entre las columnas para avanzar en el embudo.'}
+          </p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
@@ -294,7 +376,15 @@ export default function TenantPipeline() {
               return (
                 <PipelineColumn key={stage} id={stage} title={stage} customers={stageCustomers}>
                   {stageCustomers.map(customer => (
-                    <SortableCustomerCard key={customer.id} customer={customer} />
+                    <SortableCustomerCard
+                      key={customer.id}
+                      customer={customer}
+                      isCoarse={isCoarse}
+                      menuOpen={menuOpenId === customer.id}
+                      onToggleMenu={() => setMenuOpenId(menuOpenId === customer.id ? null : customer.id)}
+                      onCloseMenu={() => setMenuOpenId(null)}
+                      onMoveStage={handleMoveStage}
+                    />
                   ))}
                   {stageCustomers.length === 0 && (
                     <div className="h-full min-h-[100px] border-2 border-dashed border-slate-800 rounded-lg flex items-center justify-center text-slate-600 text-sm font-medium">

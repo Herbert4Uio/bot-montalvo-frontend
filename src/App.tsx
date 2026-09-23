@@ -8,6 +8,10 @@ import TenantDashboard from './pages/tenant/TenantDashboard';
 import TenantLayout from './layouts/TenantLayout';
 import TenantChat from './pages/tenant/TenantChat';
 import TenantSettings from './pages/tenant/TenantSettings';
+import TenantCrmDashboard from './pages/tenant/TenantCrmDashboard';
+import TenantContacts from './pages/tenant/TenantContacts';
+import TenantPipeline from './pages/tenant/TenantPipeline';
+import TenantTags from './pages/tenant/TenantTags';
 
 function App() {
   return (
@@ -32,6 +36,11 @@ function App() {
             <Route path="/tenant/:tenantId" element={<TenantLayout />}>
               <Route path="dashboard" element={<TenantDashboard />} />
               <Route path="chat" element={<TenantChat />} />
+              {/* CRM Routes */}
+              <Route path="dashboard-crm" element={<TenantCrmDashboard />} />
+              <Route path="contacts" element={<TenantContacts />} />
+              <Route path="pipeline" element={<TenantPipeline />} />
+              <Route path="tags" element={<TenantTags />} />
               <Route path="settings" element={<TenantSettings />} />
             </Route>
           </Route>

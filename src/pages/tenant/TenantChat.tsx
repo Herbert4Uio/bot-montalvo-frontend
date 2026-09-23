@@ -23,8 +23,10 @@ interface IncomingPayload {
 interface Customer {
   id: string;
   phone: string;
+  phoneNumberReal?: string;
   profileName?: string;
   updatedAt: string;
+  tags?: { id: string, name: string, color: string }[];
 }
 
 export default function TenantChat() {
@@ -40,17 +42,25 @@ export default function TenantChat() {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Filtro de etiquetas
+  const [allTags, setAllTags] = useState<{ id: string, name: string, color: string }[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string>('');
+
   // 1. Cargar la lista completa de clientes al iniciar
   useEffect(() => {
-    const fetchCustomers = async () => {
+    const fetchCustomersAndTags = async () => {
       try {
-        const res = await api.get<Customer[]>(`/chat/customers/${tenantId}`);
-        setActiveClients(res.data);
+        const [customersRes, tagsRes] = await Promise.all([
+          api.get<Customer[]>(`/chat/customers/${tenantId}`),
+          api.get(`/tags/${tenantId}`)
+        ]);
+        setActiveClients(customersRes.data);
+        setAllTags(tagsRes.data);
       } catch (error) {
         console.error('Error fetching customers', error);
       }
     };
-    fetchCustomers();
+    fetchCustomersAndTags();
   }, [tenantId]);
 
   // 2. Conectar Socket.io
@@ -176,6 +186,10 @@ export default function TenantChat() {
     }
   };
 
+  const filteredClients = activeClients.filter(c => 
+    selectedTag ? c.tags?.some(t => t.id === selectedTag) : true
+  );
+
   return (
     <div className="flex h-full bg-slate-900 overflow-hidden">
       {/* Lista de Clientes (Sidebar del Chat) */}
@@ -184,17 +198,29 @@ export default function TenantChat() {
         selectedClient ? "hidden md:flex" : "flex"
       )}>
         <div className="p-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
-          <h3 className="font-bold text-white flex items-center gap-2">
+          <h3 className="font-bold text-white flex items-center gap-2 mb-3">
             <MessageSquare size={18} className="text-emerald-400" />
             Todos los Chats
           </h3>
-          <p className="text-xs text-slate-400 mt-1">{activeClients.length} conversaciones históricas</p>
+          <div className="mb-2">
+            <select 
+              value={selectedTag} 
+              onChange={e => setSelectedTag(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded text-xs text-white p-2 focus:outline-none focus:border-emerald-500"
+            >
+              <option value="">Todas las etiquetas</option>
+              {allTags.map(tag => (
+                <option key={tag.id} value={tag.id}>{tag.name}</option>
+              ))}
+            </select>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">{filteredClients.length} conversaciones</p>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {activeClients.length === 0 ? (
+          {filteredClients.length === 0 ? (
             <p className="p-4 text-slate-500 text-sm">No hay conversaciones aún.</p>
           ) : (
-            activeClients.map((client) => {
+            filteredClients.map((client) => {
               const date = new Date(client.updatedAt);
               const isToday = date.toDateString() === new Date().toDateString();
               const timeString = isToday 
@@ -226,7 +252,9 @@ export default function TenantChat() {
                       </p>
                       <span className="text-[10px] text-slate-500 whitespace-nowrap">{timeString}</span>
                     </div>
-                    <p className="text-xs text-slate-400 font-mono truncate">{client.phone}</p>
+                    <p className="text-xs text-slate-400 font-mono truncate">
+                      {client.phoneNumberReal ? `${client.phoneNumberReal} - ${client.phone}` : client.phone}
+                    </p>
                   </div>
                 </button>
               )
@@ -255,9 +283,15 @@ export default function TenantChat() {
                 <User size={24} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-white text-base lg:text-lg truncate">{selectedClient.profileName || selectedClient.phone}</h3>
+                <h3 className="font-bold text-white text-base lg:text-lg truncate">
+                  {selectedClient.profileName || selectedClient.phoneNumberReal || selectedClient.phone}
+                </h3>
                 <span className="text-xs text-emerald-400 flex items-center gap-1 font-medium tracking-wide">
-                  {selectedClient.profileName && <span className="text-slate-400 font-mono truncate">{selectedClient.phone} &bull;</span>}
+                  {selectedClient.profileName && (
+                    <span className="text-slate-400 font-mono truncate">
+                      {selectedClient.phoneNumberReal ? `${selectedClient.phoneNumberReal} - ${selectedClient.phone}` : selectedClient.phone} &bull;
+                    </span>
+                  )}
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
                   Chat Activo
                 </span>

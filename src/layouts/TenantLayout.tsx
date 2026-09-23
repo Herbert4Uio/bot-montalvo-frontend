@@ -15,13 +15,17 @@ export default function TenantLayout() {
 
   const navTabs = [
     { to: `/tenant/${tenantId}/dashboard`, icon: QrCode, label: 'Conexión' },
+    { to: `/tenant/${tenantId}/dashboard-crm`, icon: MessageSquare, label: 'CRM Dashboard' },
     { to: `/tenant/${tenantId}/chat`, icon: MessageSquare, label: 'Live Chat' },
+    { to: `/tenant/${tenantId}/pipeline`, icon: MessageSquare, label: 'Embudo (Pipeline)' },
+    { to: `/tenant/${tenantId}/contacts`, icon: MessageSquare, label: 'Contactos' },
+    { to: `/tenant/${tenantId}/tags`, icon: Settings, label: 'Etiquetas' },
     { to: `/tenant/${tenantId}/settings`, icon: Settings, label: 'Ajustes' },
   ];
 
   const tabLinkClass = ({ isActive }: { isActive: boolean }) =>
     clsx(
-      'flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg text-xs font-medium transition-colors',
+      'flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap',
       isActive
         ? 'bg-emerald-500/20 text-emerald-400'
         : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -30,7 +34,7 @@ export default function TenantLayout() {
   return (
     <div className="h-dvh flex flex-col md:flex-row bg-slate-900 overflow-hidden">
       {/* Header móvil */}
-      <header className="md:hidden shrink-0 border-b border-slate-800 bg-slate-950">
+      <div className="relative md:hidden shrink-0 border-b border-slate-800 bg-slate-950">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
             <MessageSquare className="text-emerald-400 shrink-0" size={20} />
@@ -43,18 +47,21 @@ export default function TenantLayout() {
             <LogOut size={16} /> Salir
           </button>
         </div>
-        <nav className="flex px-3 pb-3 gap-1.5">
-          {navTabs.map(({ to, icon: Icon, label }) => (
-            <NavLink key={to} to={to} className={tabLinkClass}>
-              <Icon size={16} />
-              <span className="truncate">{label}</span>
-            </NavLink>
-          ))}
-        </nav>
-      </header>
+        <div className="relative">
+          <nav className="flex px-3 pb-3 gap-1.5 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {navTabs.map(({ to, icon: Icon, label }) => (
+              <NavLink key={to} to={to} className={tabLinkClass}>
+                <Icon size={16} />
+                <span className="truncate">{label}</span>
+              </NavLink>
+            ))}
+          </nav>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 sm:w-12 bg-gradient-to-l from-slate-950 to-transparent" />
+        </div>
+      </div>
 
       {/* Sidebar desktop */}
-      <aside className="hidden md:flex w-64 bg-slate-950 border-r border-slate-800 flex-col">
+      <aside className="hidden md:flex md:w-56 lg:w-64 bg-slate-950 border-r border-slate-800 flex-col">
         <div className="p-4 border-b border-slate-800">
           <h2 className="text-lg font-bold text-emerald-400 truncate">{tenantId}</h2>
         </div>
@@ -63,9 +70,25 @@ export default function TenantLayout() {
             <QrCode size={20} />
             Conexión
           </Link>
+          <Link to={`/tenant/${tenantId}/dashboard-crm`} className="flex items-center gap-3 px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
+            <MessageSquare size={20} />
+            Dashboard
+          </Link>
           <Link to={`/tenant/${tenantId}/chat`} className="flex items-center gap-3 px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
             <MessageSquare size={20} />
             Live Chat
+          </Link>
+          <Link to={`/tenant/${tenantId}/pipeline`} className="flex items-center gap-3 px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
+            <MessageSquare size={20} />
+            Pipelines
+          </Link>
+          <Link to={`/tenant/${tenantId}/contacts`} className="flex items-center gap-3 px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
+            <MessageSquare size={20} />
+            Contactos
+          </Link>
+          <Link to={`/tenant/${tenantId}/tags`} className="flex items-center gap-3 px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
+            <Settings size={20} />
+            Etiquetas
           </Link>
           <Link to={`/tenant/${tenantId}/settings`} className="flex items-center gap-3 px-3 py-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
             <Settings size={20} />

@@ -7,7 +7,6 @@ import {
   closestCorners, 
   KeyboardSensor, 
   PointerSensor, 
-  TouchSensor,
   useSensor, 
   useSensors,
   type DragStartEvent,
@@ -35,7 +34,7 @@ const STAGES = ['NUEVO LEAD', 'CALIFICADO', 'PRESUPUESTO ENVIADO', 'NEGOCIACION'
 // Column Component
 function PipelineColumn({ id, title, customers, children }: { id: string, title: string, customers: Customer[], children: React.ReactNode }) {
   return (
-    <div id={`pipeline-column-${title}`} className="flex flex-col flex-shrink-0 w-80 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden h-full">
+    <div id={`pipeline-column-${title}`} className="flex flex-col flex-shrink-0 w-72 sm:w-80 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden h-full select-none [-webkit-touch-callout:none]">
       <div className="p-4 border-b border-slate-800 bg-slate-900 flex justify-between items-center sticky top-0">
         <h3 className="font-bold text-white text-sm">{title}</h3>
         <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded-full">{customers.length}</span>
@@ -69,7 +68,7 @@ function SortableCustomerCard({ customer }: { customer: Customer }) {
       ref={setNodeRef}
       style={style}
       className={clsx(
-        "bg-slate-800 p-4 rounded-lg border flex flex-col gap-2 group relative",
+        "bg-slate-800 p-4 rounded-lg border flex flex-col gap-2 group relative select-none [-webkit-touch-callout:none]",
         isDragging ? "border-emerald-500 shadow-xl opacity-50 z-50" : "border-slate-700 hover:border-slate-600 shadow-sm"
       )}
     >
@@ -130,9 +129,14 @@ export default function TenantPipeline() {
     fetchContacts();
   }, [tenantId]);
 
+  const [isCoarse] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+  );
+
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: isCoarse ? { delay: 300, tolerance: 10 } : { distance: 8 },
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -303,7 +307,7 @@ export default function TenantPipeline() {
 
             <DragOverlay>
               {activeCustomer ? (
-                <div className="bg-slate-800 p-4 rounded-lg border border-emerald-500 shadow-2xl rotate-3 scale-105 opacity-80">
+                <div className="bg-slate-800 p-4 rounded-lg border border-emerald-500 shadow-2xl rotate-3 scale-105 opacity-80 select-none [-webkit-touch-callout:none]">
                   <p className="text-sm font-bold text-white mb-1">{activeCustomer.dealTitle}</p>
                   <div className="flex items-center gap-1 text-xs text-slate-400">
                     <User size={12} className="text-emerald-500" />

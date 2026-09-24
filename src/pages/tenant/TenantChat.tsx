@@ -26,6 +26,7 @@ interface Customer {
   phoneNumberReal?: string;
   profileName?: string;
   updatedAt: string;
+  chatStatus: string;
   tags?: { id: string, name: string, color: string }[];
 }
 
@@ -42,9 +43,10 @@ export default function TenantChat() {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Filtro de etiquetas
+  // Filtro de etiquetas y bandejas
   const [allTags, setAllTags] = useState<{ id: string, name: string, color: string }[]>([]);
   const [selectedTag, setSelectedTag] = useState<string>('');
+  const [activeInbox, setActiveInbox] = useState<'BOT' | 'HUMAN' | 'CLOSED'>('BOT');
 
   // 1. Cargar la lista completa de clientes al iniciar
   useEffect(() => {
@@ -94,6 +96,7 @@ export default function TenantChat() {
             id: Date.now().toString(),
             phone: phone,
             profileName: payload.profileName,
+            chatStatus: 'BOT',
             updatedAt: updatedDate
           });
         }
@@ -153,7 +156,7 @@ export default function TenantChat() {
 
     // Añadir optimísticamente a la UI
     const newMessage: Message = {
-      role: 'ASSISTANT', // Lo marcamos como ASSISTANT o ADMIN
+      role: 'ADMIN', // Lo marcamos como ADMIN explícitamente
       content: messageText,
       createdAt: new Date().toISOString()
     };
@@ -170,25 +173,54 @@ export default function TenantChat() {
         message: messageText
       });
       
-      // Actualizar timestamp del cliente seleccionado a "ahora"
+      // Actualizar timestamp y status del cliente seleccionado a "ahora"
       setActiveClients((prev) => {
         const list = [...prev];
         const idx = list.findIndex(c => c.phone === selectedClient.phone);
         if (idx >= 0) {
           const [c] = list.splice(idx, 1);
+          c.chatStatus = 'HUMAN';
           list.unshift({ ...c, updatedAt: new Date().toISOString() });
         }
         return list;
       });
+      setSelectedClient(prev => prev ? { ...prev, chatStatus: 'HUMAN' } : null);
+      setActiveInbox('HUMAN'); // Cambiamos de pestaña para no perderlo de vista
 
     } catch (error) {
       console.error('Error enviando mensaje manual', error);
     }
   };
 
-  const filteredClients = activeClients.filter(c => 
-    selectedTag ? c.tags?.some(t => t.id === selectedTag) : true
-  );
+  const changeChatStatus = async (status: 'BOT' | 'HUMAN' | 'CLOSED') => {
+    if (!selectedClient) return;
+    try {
+      await api.post('/chat/status', {
+        tenantId,
+        customerPhone: selectedClient.phone,
+        status
+      });
+      
+      // Update local state
+      setActiveClients(prev => prev.map(c => c.phone === selectedClient.phone ? { ...c, chatStatus: status } : c));
+      setSelectedClient(prev => prev ? { ...prev, chatStatus: status } : null);
+      
+      // Cambiar a la bandeja correspondiente o si es BOT, limpiar el historial en pantalla si se requiere
+      if (status === 'BOT') {
+        setChatHistory(prev => ({ ...prev, [selectedClient.phone]: [] })); // Se limpió en BD
+      }
+      setActiveInbox(status);
+
+    } catch (error) {
+      console.error('Error changing chat status', error);
+    }
+  };
+
+  const filteredClients = activeClients.filter(c => {
+    const matchesTag = selectedTag ? c.tags?.some(t => t.id === selectedTag) : true;
+    const matchesInbox = (c.chatStatus || 'BOT') === activeInbox;
+    return matchesTag && matchesInbox;
+  });
 
   return (
     <div className="flex h-full bg-slate-900 overflow-hidden">
@@ -214,7 +246,27 @@ export default function TenantChat() {
               ))}
             </select>
           </div>
-          <p className="text-xs text-slate-400 mt-1">{filteredClients.length} conversaciones</p>
+          
+          <div className="flex rounded-md overflow-hidden bg-slate-800/50 p-1 gap-1">
+            <button 
+              onClick={() => setActiveInbox('BOT')}
+              className={clsx("flex-1 py-2 text-[11px] font-bold rounded whitespace-nowrap", activeInbox === 'BOT' ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700")}
+            >
+              🤖 IA
+            </button>
+            <button 
+              onClick={() => setActiveInbox('HUMAN')}
+              className={clsx("flex-1 py-2 text-[11px] font-bold rounded whitespace-nowrap", activeInbox === 'HUMAN' ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700")}
+            >
+              ⚠️ Humano
+            </button>
+            <button 
+              onClick={() => setActiveInbox('CLOSED')}
+              className={clsx("flex-1 py-2 text-[11px] font-bold rounded whitespace-nowrap", activeInbox === 'CLOSED' ? "bg-slate-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700")}
+            >
+              ✅ Cerrados
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           {filteredClients.length === 0 ? (
@@ -286,25 +338,76 @@ export default function TenantChat() {
                 <h3 className="font-bold text-white text-base lg:text-lg truncate">
                   {selectedClient.profileName || selectedClient.phoneNumberReal || selectedClient.phone}
                 </h3>
-                <span className="text-xs text-emerald-400 flex items-center gap-1 font-medium tracking-wide">
+                <span className="text-xs text-emerald-400 flex items-center gap-1 font-medium tracking-wide min-w-0">
                   {selectedClient.profileName && (
-                    <span className="text-slate-400 font-mono truncate">
+                    <span className="text-slate-400 font-mono truncate min-w-0">
                       {selectedClient.phoneNumberReal ? `${selectedClient.phoneNumberReal} - ${selectedClient.phone}` : selectedClient.phone} &bull;
                     </span>
                   )}
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                  Chat Activo
+                  <span className="shrink-0 flex items-center gap-1">
+                    {selectedClient.chatStatus === 'BOT' && <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span> Atendido por IA</>}
+                    {selectedClient.chatStatus === 'HUMAN' && <><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span> Intervención Humana</>}
+                    {selectedClient.chatStatus === 'CLOSED' && <><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span> Chat Cerrado</>}
+                  </span>
                 </span>
               </div>
-              <div className="hidden md:flex items-center gap-2 text-xs bg-amber-500/10 text-amber-400 px-3 py-1.5 rounded-full border border-amber-500/20 font-medium shrink-0">
-                <UserCog size={14} /> Modo Intervención (Si escribes, la IA se detiene)
+              <div className="hidden md:flex items-center gap-2 shrink-0">
+                {(selectedClient.chatStatus === 'BOT' || !selectedClient.chatStatus) && (
+                  <button onClick={() => changeChatStatus('HUMAN')} className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-3 py-1.5 rounded-full border border-amber-500/20 text-xs font-bold transition-colors">
+                    Pausar IA
+                  </button>
+                )}
+                {selectedClient.chatStatus === 'HUMAN' && (
+                  <>
+                    <button onClick={() => changeChatStatus('BOT')} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 text-xs font-bold transition-colors">
+                      Reanudar IA
+                    </button>
+                    <button onClick={() => changeChatStatus('CLOSED')} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-full text-xs font-bold transition-colors">
+                      Marcar Resuelto
+                    </button>
+                  </>
+                )}
+                {selectedClient.chatStatus === 'CLOSED' && (
+                  <button onClick={() => changeChatStatus('BOT')} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 text-xs font-bold transition-colors">
+                    Reabrir con IA
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Aviso de intervención (móvil) */}
-            <div className="md:hidden flex items-center gap-1.5 text-[11px] bg-amber-500/10 text-amber-400 px-4 py-2 border-b border-amber-500/10 font-medium">
-              <UserCog size={13} className="shrink-0" />
-              Modo Intervención: si escribes, la IA se detiene
+            {/* Estado y acciones (móvil) */}
+            <div className="md:hidden border-b border-slate-800 bg-slate-900 px-4 py-2 space-y-2">
+              {(selectedClient.chatStatus === 'HUMAN') && (
+                <>
+                  <p className="flex items-center gap-1.5 text-[11px] text-amber-400 font-medium">
+                    <UserCog size={13} className="shrink-0" />
+                    Modo Intervención: la IA está pausada
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={() => changeChatStatus('BOT')} className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg py-2.5 text-xs font-bold transition-colors">
+                      Reanudar IA
+                    </button>
+                    <button onClick={() => changeChatStatus('CLOSED')} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg py-2.5 text-xs font-bold transition-colors">
+                      Marcar Resuelto
+                    </button>
+                  </div>
+                </>
+              )}
+              {selectedClient.chatStatus === 'CLOSED' && (
+                <>
+                  <p className="flex items-center gap-1.5 text-[11px] text-slate-300 font-medium">
+                    Chat marcado como resuelto.
+                  </p>
+                  <button onClick={() => changeChatStatus('BOT')} className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg py-2.5 text-xs font-bold transition-colors">
+                    Reabrir con IA
+                  </button>
+                </>
+              )}
+              {(selectedClient.chatStatus === 'BOT' || !selectedClient.chatStatus) && (
+                <button onClick={() => changeChatStatus('HUMAN')} className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg py-2.5 text-xs font-bold transition-colors">
+                  Pausar IA (intervenir manualmente)
+                </button>
+              )}
             </div>
 
             {/* Mensajes */}
@@ -315,18 +418,26 @@ export default function TenantChat() {
                 </div>
               ) : (
                 (chatHistory[selectedClient.phone] || []).map((msg, idx) => {
-                  const isBotOrAdmin = msg.role === 'ASSISTANT' || msg.role === 'SYSTEM';
+                  const isBot = msg.role === 'ASSISTANT';
+                  const isSystemOrAdmin = msg.role === 'SYSTEM' || msg.role === 'ADMIN';
+                  const isBotOrAdmin = isBot || isSystemOrAdmin;
                   return (
                     <div key={idx} className={clsx("flex", isBotOrAdmin ? "justify-end" : "justify-start")}>
                       <div className={clsx(
                         "max-w-[80%] sm:max-w-[75%] rounded-2xl px-4 sm:px-5 py-3 shadow-md relative group",
-                        isBotOrAdmin 
+                        isBot 
                           ? "bg-emerald-600 text-white rounded-tr-sm" 
-                          : "bg-slate-800 text-slate-100 border border-slate-700 rounded-tl-sm"
+                          : isSystemOrAdmin 
+                            ? "bg-amber-600 text-white rounded-tr-sm"
+                            : "bg-slate-800 text-slate-100 border border-slate-700 rounded-tl-sm"
                       )}>
                         {isBotOrAdmin && (
-                          <div className="flex items-center gap-1.5 text-emerald-200/80 mb-1.5 text-[10px] uppercase font-bold tracking-wider">
-                            <Bot size={12} /> {msg.role === 'SYSTEM' ? 'ADMIN (MANUAL)' : 'IA BOT'}
+                          <div className={clsx(
+                            "flex items-center gap-1.5 mb-1.5 text-[10px] uppercase font-bold tracking-wider",
+                            isBot ? "text-emerald-200/80" : "text-amber-200/80"
+                          )}>
+                            {isSystemOrAdmin ? <UserCog size={12} /> : <Bot size={12} />}
+                            {isSystemOrAdmin ? 'HUMANO (ADMIN)' : 'IA BOT'}
                           </div>
                         )}
                         <p className="whitespace-pre-wrap leading-relaxed text-sm">{msg.content}</p>

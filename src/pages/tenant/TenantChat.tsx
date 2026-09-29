@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../lib/axios';
 import { io } from 'socket.io-client';
-import { Send, User, Bot, UserCog, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Send, User, Bot, UserCog, MessageSquare, ArrowLeft, Paperclip, XCircle } from 'lucide-react';
 import clsx from 'clsx';
 
 interface Message {
@@ -41,7 +41,10 @@ export default function TenantChat() {
   const [chatHistory, setChatHistory] = useState<Record<string, Message[]>>({});
   
   const [inputText, setInputText] = useState('');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filtro de etiquetas y bandejas
   const [allTags, setAllTags] = useState<{ id: string, name: string, color: string }[]>([]);
@@ -147,17 +150,39 @@ export default function TenantChat() {
   }, [chatHistory, selectedClient]);
 
   // 5. Enviar mensaje manual
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const sendManualMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !selectedClient) return;
+    if ((!inputText.trim() && !selectedImage) || !selectedClient) return;
 
     const messageText = inputText;
+    const currentImage = selectedImage;
+    
     setInputText('');
+    removeImage();
 
     // Añadir optimísticamente a la UI
     const newMessage: Message = {
-      role: 'ADMIN', // Lo marcamos como ADMIN explícitamente
-      content: messageText,
+      role: 'ADMIN',
+      content: currentImage ? `[Imagen adjunta] ${messageText}`.trim() : messageText,
       createdAt: new Date().toISOString()
     };
     
@@ -167,10 +192,20 @@ export default function TenantChat() {
     }));
 
     try {
-      await api.post('/chat/send', {
-        tenantId,
-        customerPhone: selectedClient.phone,
-        message: messageText
+      const formData = new FormData();
+      formData.append('tenantId', tenantId || '');
+      formData.append('customerPhone', selectedClient.phone);
+      if (messageText) {
+        formData.append('message', messageText);
+      }
+      if (currentImage) {
+        formData.append('image', currentImage);
+      }
+
+      await api.post('/chat/send', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
       
       // Actualizar timestamp y status del cliente seleccionado a "ahora"
@@ -451,18 +486,51 @@ export default function TenantChat() {
 
             {/* Input Form */}
             <div className="p-3 sm:p-4 bg-slate-950 border-t border-slate-800">
-              <form onSubmit={sendManualMessage} className="flex gap-2 sm:gap-3 max-w-4xl mx-auto">
+              {previewUrl && (
+                <div className="max-w-4xl mx-auto mb-3 relative inline-block">
+                  <div className="relative rounded-lg overflow-hidden border border-slate-700 bg-slate-800 p-2 pr-10 inline-flex items-center gap-3">
+                    <img src={previewUrl} alt="Preview" className="h-16 object-contain rounded bg-slate-900" />
+                    <div className="text-xs text-slate-400 font-medium">
+                      <p className="text-slate-300 truncate max-w-[150px]">{selectedImage?.name}</p>
+                      <p>{Math.round((selectedImage?.size || 0) / 1024)} KB</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg"
+                  >
+                    <XCircle size={20} />
+                  </button>
+                </div>
+              )}
+              <form onSubmit={sendManualMessage} className="flex gap-2 sm:gap-3 max-w-4xl mx-auto items-end">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-full transition-colors flex items-center justify-center shrink-0 mb-0.5"
+                  title="Adjuntar Imagen"
+                >
+                  <Paperclip size={20} />
+                </button>
                 <input
                   type="text"
                   placeholder="Escribe un mensaje para enviarlo como administrador..."
-                  className="flex-1 bg-slate-900 border border-slate-700 rounded-full px-4 sm:px-6 py-3 text-sm sm:text-base text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-500 shadow-inner min-w-0"
+                  className="flex-1 h-12 bg-slate-900 border border-slate-700 rounded-full px-4 sm:px-6 text-sm sm:text-base text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-500 shadow-inner min-w-0"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                 />
                 <button
                   type="submit"
-                  disabled={!inputText.trim()}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-white p-3 px-4 sm:px-6 rounded-full flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-50 hover:shadow-lg hover:shadow-emerald-500/20 hover:-translate-y-0.5 active:translate-y-0 shrink-0"
+                  disabled={!inputText.trim() && !selectedImage}
+                  className="h-12 bg-emerald-500 hover:bg-emerald-400 text-white px-4 sm:px-6 rounded-full flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-50 hover:shadow-lg hover:shadow-emerald-500/20 active:translate-y-0.5 shrink-0"
                 >
                   <span className="hidden sm:inline">Enviar</span>
                   <Send size={18} />

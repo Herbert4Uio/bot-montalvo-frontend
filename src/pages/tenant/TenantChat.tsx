@@ -46,6 +46,8 @@ export default function TenantChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+
   // Filtro de etiquetas y bandejas
   const [allTags, setAllTags] = useState<{ id: string, name: string, color: string }[]>([]);
   const [selectedTag, setSelectedTag] = useState<string>('');
@@ -202,11 +204,7 @@ export default function TenantChat() {
         formData.append('image', currentImage);
       }
 
-      await api.post('/chat/send', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      await api.post('/chat/send', formData);
       
       // Actualizar timestamp y status del cliente seleccionado a "ahora"
       setActiveClients((prev) => {
@@ -227,13 +225,14 @@ export default function TenantChat() {
     }
   };
 
-  const changeChatStatus = async (status: 'BOT' | 'HUMAN' | 'CLOSED') => {
+  const changeChatStatus = async (status: 'BOT' | 'HUMAN' | 'CLOSED', clearMemory: boolean = true) => {
     if (!selectedClient) return;
     try {
       await api.post('/chat/status', {
         tenantId,
         customerPhone: selectedClient.phone,
-        status
+        status,
+        clearMemory
       });
       
       // Update local state
@@ -241,7 +240,7 @@ export default function TenantChat() {
       setSelectedClient(prev => prev ? { ...prev, chatStatus: status } : null);
       
       // Cambiar a la bandeja correspondiente o si es BOT, limpiar el historial en pantalla si se requiere
-      if (status === 'BOT') {
+      if (status === 'BOT' && clearMemory) {
         setChatHistory(prev => ({ ...prev, [selectedClient.phone]: [] })); // Se limpió en BD
       }
       setActiveInbox(status);
@@ -394,7 +393,7 @@ export default function TenantChat() {
                 )}
                 {selectedClient.chatStatus === 'HUMAN' && (
                   <>
-                    <button onClick={() => changeChatStatus('BOT')} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 text-xs font-bold transition-colors">
+                    <button onClick={() => setIsResumeModalOpen(true)} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 text-xs font-bold transition-colors">
                       Reanudar IA
                     </button>
                     <button onClick={() => changeChatStatus('CLOSED')} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-full text-xs font-bold transition-colors">
@@ -403,7 +402,7 @@ export default function TenantChat() {
                   </>
                 )}
                 {selectedClient.chatStatus === 'CLOSED' && (
-                  <button onClick={() => changeChatStatus('BOT')} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 text-xs font-bold transition-colors">
+                  <button onClick={() => setIsResumeModalOpen(true)} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 text-xs font-bold transition-colors">
                     Reabrir con IA
                   </button>
                 )}
@@ -419,7 +418,7 @@ export default function TenantChat() {
                     Modo Intervención: la IA está pausada
                   </p>
                   <div className="flex gap-2">
-                    <button onClick={() => changeChatStatus('BOT')} className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg py-2.5 text-xs font-bold transition-colors">
+                    <button onClick={() => setIsResumeModalOpen(true)} className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg py-2.5 text-xs font-bold transition-colors">
                       Reanudar IA
                     </button>
                     <button onClick={() => changeChatStatus('CLOSED')} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg py-2.5 text-xs font-bold transition-colors">
@@ -552,6 +551,63 @@ export default function TenantChat() {
           </div>
         )}
       </div>
+
+      {/* Modal para Reanudar IA */}
+      {isResumeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-white mb-2">Opciones para Reanudar IA</h3>
+              <p className="text-slate-400 text-sm mb-6">
+                Elige cómo quieres que el chatbot retome esta conversación.
+              </p>
+              
+              <div className="space-y-3">
+                <button 
+                  onClick={() => {
+                    changeChatStatus('BOT', false);
+                    setIsResumeModalOpen(false);
+                  }}
+                  className="w-full text-left p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors group"
+                >
+                  <div className="font-bold text-emerald-400 group-hover:text-emerald-300 flex items-center gap-2">
+                    <Bot size={18} />
+                    Mantener contexto del chat
+                    <span className="ml-auto text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Recomendado</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    La IA leerá lo que acabas de conversar con el cliente y responderá de acuerdo al contexto actual.
+                  </p>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    changeChatStatus('BOT', true);
+                    setIsResumeModalOpen(false);
+                  }}
+                  className="w-full text-left p-4 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 transition-colors"
+                >
+                  <div className="font-bold text-white flex items-center gap-2">
+                    <MessageSquare size={18} className="text-slate-400" />
+                    Empezar un chat nuevo (Borrar memoria)
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    La IA olvidará todo lo hablado en esta sesión y saludará al cliente como si fuera su primera vez.
+                  </p>
+                </button>
+              </div>
+            </div>
+            <div className="bg-slate-950 p-4 border-t border-slate-800 flex justify-end">
+              <button 
+                onClick={() => setIsResumeModalOpen(false)}
+                className="px-5 py-2 rounded-lg font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

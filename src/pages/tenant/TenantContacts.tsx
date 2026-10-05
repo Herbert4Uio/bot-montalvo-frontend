@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/axios';
-import { User, Search, Edit3, Save, X, Plus, Trash2 } from 'lucide-react';
+import { User, Search, Edit3, Save, X, Plus, Trash2, MessageSquare } from 'lucide-react';
 import clsx from 'clsx';
 
 interface Tag {
@@ -25,15 +25,16 @@ interface Customer {
 
 export default function TenantContacts() {
   const { tenantId } = useParams();
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [search, setSearch] = useState('');
-  
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'CREATE' | 'EDIT'>('CREATE');
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  
+
   const [editPhone, setEditPhone] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editTags, setEditTags] = useState<string[]>([]);
@@ -56,8 +57,8 @@ export default function TenantContacts() {
     fetchData();
   }, [tenantId]);
 
-  const filteredCustomers = customers.filter(c => 
-    c.phone.includes(search) || 
+  const filteredCustomers = customers.filter(c =>
+    c.phone.includes(search) ||
     (c.phoneNumberReal && c.phoneNumberReal.includes(search)) ||
     (c.profileName && c.profileName.toLowerCase().includes(search.toLowerCase())) ||
     (c.dealTitle && c.dealTitle.toLowerCase().includes(search.toLowerCase()))
@@ -81,18 +82,23 @@ export default function TenantContacts() {
     setEditNotes(customer.notes || '');
     setEditTags(customer.tags.map(t => t.id));
     setEditProfileName(customer.profileName || '');
-    setEditPhoneNumberReal(customer.phoneNumberReal || '');
+    setEditPhoneNumberReal(customer.phoneNumberReal || customer.phone);
     setIsModalOpen(true);
   };
 
+  const sanitizePhone = (val: string) => val.replace(/[\+\s\-\(\)]/g, '');
+
   const handleSave = async () => {
     try {
+      const sanitizedPhone = sanitizePhone(editPhone);
+      const sanitizedReal = sanitizePhone(editPhoneNumberReal);
+
       const payload = {
-        phone: editPhone, // Ignorado en PATCH por backend, pero requerido en POST
+        phone: sanitizedPhone, // Ignorado en PATCH
         notes: editNotes,
         tagIds: editTags,
         profileName: editProfileName,
-        phoneNumberReal: editPhoneNumberReal
+        phoneNumberReal: modalMode === 'CREATE' ? sanitizedPhone : sanitizedReal
       };
 
       if (modalMode === 'CREATE') {
@@ -122,7 +128,7 @@ export default function TenantContacts() {
   };
 
   const toggleTag = (tagId: string) => {
-    setEditTags(prev => 
+    setEditTags(prev =>
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     );
   };
@@ -145,7 +151,7 @@ export default function TenantContacts() {
             />
           </div>
         </div>
-        <button 
+        <button
           onClick={openCreateModal}
           className="shrink-0 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white px-4 py-2.5 sm:py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors"
         >
@@ -193,9 +199,12 @@ export default function TenantContacts() {
                     </div>
                   </td>
                   <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-sm text-slate-400">
-                    {new Date(customer.updatedAt).toLocaleDateString()} {new Date(customer.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    {new Date(customer.updatedAt).toLocaleDateString()} {new Date(customer.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </td>
-                  <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-2">
+                    <button onClick={() => navigate(`/tenant/${tenantId}/chat?contact=${customer.phone}`)} className="text-blue-400 hover:text-blue-300 transition-colors bg-blue-400/10 p-2 rounded-lg inline-flex items-center gap-2" title="Chatear">
+                      <MessageSquare size={16} /> <span className="hidden lg:inline">Chatear</span>
+                    </button>
                     <button onClick={() => openEditModal(customer)} className="text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-400/10 p-2 rounded-lg inline-flex items-center gap-2">
                       <Edit3 size={16} /> <span className="hidden lg:inline">Editar</span>
                     </button>
@@ -245,8 +254,11 @@ export default function TenantContacts() {
                         ))
                       )}
                     </div>
-                    <div className="mt-3 -mb-1">
-                      <button onClick={() => openEditModal(customer)} className="text-emerald-400 active:bg-emerald-400/20 hover:text-emerald-300 transition-colors bg-emerald-400/10 p-2.5 sm:p-2 rounded-lg inline-flex items-center gap-2 text-sm w-full sm:w-auto justify-center sm:justify-start">
+                    <div className="mt-3 -mb-1 flex gap-2">
+                      <button onClick={() => navigate(`/tenant/${tenantId}/chat?contact=${customer.phone}`)} className="text-blue-400 active:bg-blue-400/20 hover:text-blue-300 transition-colors bg-blue-400/10 p-2.5 sm:p-2 rounded-lg inline-flex items-center gap-2 text-sm flex-1 justify-center">
+                        <MessageSquare size={16} /> Chatear
+                      </button>
+                      <button onClick={() => openEditModal(customer)} className="text-emerald-400 active:bg-emerald-400/20 hover:text-emerald-300 transition-colors bg-emerald-400/10 p-2.5 sm:p-2 rounded-lg inline-flex items-center gap-2 text-sm flex-1 justify-center">
                         <Edit3 size={16} /> Editar
                       </button>
                     </div>
@@ -275,47 +287,63 @@ export default function TenantContacts() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="p-4 sm:p-6 flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-4 sm:space-y-6">
-              {modalMode === 'CREATE' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Teléfono WhatsApp (Requerido)</label>
-                  <input
-                    required
-                    type="text"
-                    inputMode="tel"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 sm:p-2 text-base sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Ej. 1234567890"
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Debe ser el identificador único (ej. número con código de país sin el +).</p>
+              {modalMode === 'CREATE' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Nombre</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 sm:p-2 text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                      placeholder="Ej. Juan Pérez"
+                      value={editProfileName}
+                      onChange={(e) => setEditProfileName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-emerald-400 mb-1">Número de WhatsApp *</label>
+                    <input
+                      required
+                      type="text"
+                      inputMode="tel"
+                      className="w-full bg-slate-800 border border-emerald-500/50 rounded-lg p-2.5 sm:p-2 text-base sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
+                      placeholder="Ej. 59178888888"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">Ingresa el código de país pero sin el simbolo de "+" Ej: 591.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Nombre</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 sm:p-2 text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                      placeholder="Ej. Juan Pérez"
+                      value={editProfileName}
+                      onChange={(e) => setEditProfileName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Número de Contacto Real</label>
+                    <input
+                      type="text"
+                      inputMode="tel"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 sm:p-2 text-base sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                      placeholder="Ej. 59178888888"
+                      value={editPhoneNumberReal}
+                      onChange={(e) => setEditPhoneNumberReal(e.target.value)}
+                    />
+                    {editingCustomer?.phone !== editPhoneNumberReal && (
+                      <p className="text-[11px] text-amber-400/80 mt-1 font-mono">ID interno: {editingCustomer?.phone}</p>
+                    )}
+                  </div>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Nombre</label>
-                  <input
-                    type="text"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 sm:p-2 text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Ej. Juan Pérez"
-                    value={editProfileName}
-                    onChange={(e) => setEditProfileName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Número Real</label>
-                  <input
-                    type="text"
-                    inputMode="tel"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 sm:p-2 text-base sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Ej. +123456789"
-                    value={editPhoneNumberReal}
-                    onChange={(e) => setEditPhoneNumberReal(e.target.value)}
-                  />
-                </div>
-              </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Etiquetas Asignadas</label>
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -356,10 +384,10 @@ export default function TenantContacts() {
                 />
               </div>
             </div>
-            
+
             <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-800 bg-slate-950 shrink-0 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4">
               {modalMode === 'EDIT' ? (
-                <button 
+                <button
                   onClick={handleDelete}
                   className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg font-medium text-red-400 hover:text-white hover:bg-red-500/20 active:bg-red-500/20 transition-colors"
                 >
@@ -369,13 +397,13 @@ export default function TenantContacts() {
                 <div className="hidden sm:block" />
               )}
               <div className="flex gap-2 w-full sm:w-auto">
-                <button 
+                <button
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2.5 sm:py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors w-full sm:w-auto flex-1 sm:flex-none"
                 >
                   Cancelar
                 </button>
-                <button 
+                <button
                   onClick={handleSave}
                   disabled={modalMode === 'CREATE' && !editPhone}
                   className="px-4 py-2.5 sm:py-2 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg flex justify-center items-center gap-2 transition-colors shadow-lg shadow-emerald-500/20 w-full sm:w-auto flex-1 sm:flex-none"

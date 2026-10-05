@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../lib/axios';
 import { io } from 'socket.io-client';
-import { Send, User, Bot, UserCog, MessageSquare, ArrowLeft, Paperclip, XCircle } from 'lucide-react';
+import { Send, User, Bot, UserCog, MessageSquare, ArrowLeft, Paperclip, XCircle, Search, Plus } from 'lucide-react';
 import clsx from 'clsx';
 
 interface Message {
@@ -47,6 +47,10 @@ export default function TenantChat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+  const [newChatSearch, setNewChatSearch] = useState('');
+
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Filtro de etiquetas y bandejas
   const [allTags, setAllTags] = useState<{ id: string, name: string, color: string }[]>([]);
@@ -63,6 +67,18 @@ export default function TenantChat() {
         ]);
         setActiveClients(customersRes.data);
         setAllTags(tagsRes.data);
+
+        // Auto-select contact from URL if present
+        const contactParam = searchParams.get('contact');
+        if (contactParam) {
+          const found = customersRes.data.find(c => c.phone === contactParam);
+          if (found) {
+            setSelectedClient(found);
+            setActiveInbox(found.chatStatus as 'BOT' | 'HUMAN' | 'CLOSED' || 'BOT');
+          }
+          // Remove param from URL without reloading
+          setSearchParams({});
+        }
       } catch (error) {
         console.error('Error fetching customers', error);
       }
@@ -256,6 +272,19 @@ export default function TenantChat() {
     return matchesTag && matchesInbox;
   });
 
+  const newChatFilteredClients = activeClients.filter(c => 
+    c.phone.includes(newChatSearch) || 
+    (c.phoneNumberReal && c.phoneNumberReal.includes(newChatSearch)) ||
+    (c.profileName && c.profileName.toLowerCase().includes(newChatSearch.toLowerCase()))
+  );
+
+  const handleStartNewChat = (customer: Customer) => {
+    setSelectedClient(customer);
+    setActiveInbox(customer.chatStatus as 'BOT' | 'HUMAN' | 'CLOSED' || 'BOT');
+    setIsNewChatModalOpen(false);
+    setNewChatSearch('');
+  };
+
   return (
     <div className="flex h-full bg-slate-900 overflow-hidden">
       {/* Lista de Clientes (Sidebar del Chat) */}
@@ -264,10 +293,19 @@ export default function TenantChat() {
         selectedClient ? "hidden md:flex" : "flex"
       )}>
         <div className="p-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
-          <h3 className="font-bold text-white flex items-center gap-2 mb-3">
-            <MessageSquare size={18} className="text-emerald-400" />
-            Todos los Chats
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-white flex items-center gap-2">
+              <MessageSquare size={18} className="text-emerald-400" />
+              Todos los Chats
+            </h3>
+            <button 
+              onClick={() => setIsNewChatModalOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white p-1.5 rounded-lg transition-colors"
+              title="Nuevo Chat"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
           <div className="mb-2">
             <select 
               value={selectedTag} 
@@ -604,6 +642,66 @@ export default function TenantChat() {
               >
                 Cancelar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Nuevo Chat */}
+      {isNewChatModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 pt-10 sm:pt-20">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+              <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                <Plus size={20} className="text-emerald-400" />
+                Nuevo Chat
+              </h3>
+              <button 
+                onClick={() => setIsNewChatModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <XCircle size={24} />
+              </button>
+            </div>
+            
+            <div className="p-4 border-b border-slate-800 bg-slate-900">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="text-slate-500" size={18} />
+                </div>
+                <input
+                  type="text"
+                  autoFocus
+                  className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  placeholder="Buscar contacto por nombre o número..."
+                  value={newChatSearch}
+                  onChange={(e) => setNewChatSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-2">
+              {newChatFilteredClients.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 text-sm">
+                  No se encontraron contactos.
+                </div>
+              ) : (
+                newChatFilteredClients.map(customer => (
+                  <button
+                    key={customer.id}
+                    onClick={() => handleStartNewChat(customer)}
+                    className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800 transition-colors text-left group"
+                  >
+                    <div className="h-10 w-10 bg-slate-700 group-hover:bg-emerald-500/20 rounded-full flex items-center justify-center text-slate-400 group-hover:text-emerald-400 transition-colors shrink-0">
+                      <User size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-white truncate">{customer.profileName || 'Desconocido'}</div>
+                      <div className="text-xs text-slate-400 font-mono truncate">{customer.phoneNumberReal || customer.phone}</div>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>

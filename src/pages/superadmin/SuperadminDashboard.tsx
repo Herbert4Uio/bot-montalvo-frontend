@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/axios';
 import { useNavigate } from 'react-router-dom';
-import { Building, Plus, ArrowRight } from 'lucide-react';
+import { Building, Plus, ArrowRight, Trash2, AlertTriangle } from 'lucide-react';
 
 interface Tenant {
   id: string;
@@ -16,6 +16,10 @@ export default function SuperadminDashboard() {
   const [newTenantName, setNewTenantName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
+
+  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,8 +42,8 @@ export default function SuperadminDashboard() {
     if (!newTenantName || !adminEmail || !adminPassword) return;
     try {
       const id = newTenantName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      await api.post('/tenants', { 
-        id, 
+      await api.post('/tenants', {
+        id,
         name: newTenantName,
         adminEmail,
         adminPassword
@@ -50,6 +54,21 @@ export default function SuperadminDashboard() {
       fetchTenants();
     } catch (error) {
       console.error('Error creating tenant', error);
+    }
+  };
+
+  const deleteTenant = async () => {
+    if (!tenantToDelete) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/tenants/${tenantToDelete.id}`);
+      setTenantToDelete(null);
+      fetchTenants();
+    } catch (error) {
+      console.error('Error deleting tenant', error);
+      alert('Error al eliminar la empresa. Asegúrate de tener conexión.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -132,6 +151,48 @@ export default function SuperadminDashboard() {
           </ul>
         )}
       </div>
+
+      {/* Modal de Advertencia de Eliminación */}
+      {tenantToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-red-500/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-red-500/10 p-6 flex flex-col items-center text-center border-b border-red-500/20">
+              <div className="bg-red-500/20 p-4 rounded-full mb-4">
+                <AlertTriangle size={48} className="text-red-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">¿Eliminar esta Empresa?</h3>
+              <p className="text-slate-300">
+                Estás a punto de eliminar permanentemente a <strong className="text-white">{tenantToDelete.name}</strong>.
+              </p>
+            </div>
+            <div className="p-6">
+              <ul className="text-sm text-slate-400 space-y-2 mb-6 list-disc list-inside">
+                <li>Se borrará todo el historial de chats y clientes.</li>
+                <li>Se borrarán los usuarios administradores del tenant.</li>
+                <li>Se cerrará la sesión de WhatsApp vinculada.</li>
+                <li className="font-bold text-red-400">Esta acción no se puede deshacer.</li>
+              </ul>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setTenantToDelete(null)}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2.5 rounded-lg font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={deleteTenant}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 active:bg-red-700 disabled:opacity-50 text-white font-medium rounded-lg flex justify-center items-center gap-2 transition-colors shadow-lg shadow-red-500/20"
+                >
+                  {isDeleting ? 'Eliminando...' : <><Trash2 size={18} /> Sí, Eliminar</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
